@@ -18,14 +18,8 @@ export default async function handler(req, res) {
   const basic = Buffer.from(`${client_id}:${client_secret}`).toString('base64');
   
   // Pedaços picados para burlar a alteração automática de links do sistema
-  const s = 'spo';
-  const t = 'tify';
-  const d = 'co';
-  const m = 'm';
-  const linkBase = s + t + '.' + d + m;
-
-  const TOKEN_ENDPOINT = 'https://accounts.' + linkBase + '/api/token';
-  const NOW_PLAYING_ENDPOINT = 'https://api.' + linkBase + '/v1/me/player/currently-playing';
+  const TOKEN_ENDPOINT = 'https://accounts.spotify.com/api/token';
+  const NOW_PLAYING_ENDPOINT = 'https://api.spotify.com/v1/me/player/currently-playing';
 
   try {
     // 3. Pede um "ingresso" novo para o Spotify usando a chave mestra
