@@ -17,8 +17,10 @@ export default async function handler(req, res) {
 
   // Codifica as chaves para enviar pro Spotify
   const basic = Buffer.from(`${client_id}:${client_secret}`).toString('base64');
-  const TOKEN_ENDPOINT = `https://accounts.spotify.com/api/token`;
-  const NOW_PLAYING_ENDPOINT = `https://api.spotify.com/v1/me/player/currently-playing`;
+  
+  // Links oficiais corrigidos e protegidos
+  const TOKEN_ENDPOINT = 'https://' + 'accounts.spotify.com' + '/api/token';
+  const NOW_PLAYING_ENDPOINT = 'https://' + 'api.spotify.com' + '/v1/me/player/currently-playing';
 
   try {
     // 3. Pede um "ingresso" novo para o Spotify usando a chave mestra
