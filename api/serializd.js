@@ -9,7 +9,7 @@ export default async function handler(req, res) {
     }
 
     try {
-        const urlSerializd = 'https://serializd.com/api/user/kennowiski/diary';
+        const urlSerializd = 'https://www.serializd.com/api/user/kennowiski/diary';
         
         // Colocando um "disfarce" para a API achar que somos um navegador real
         const response = await fetch(urlSerializd, {
