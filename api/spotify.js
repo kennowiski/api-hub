@@ -96,7 +96,7 @@ export default async function handler(req, res) {
       }
     );
 
-    // Se o Spotify estiver em silêncio (Status 204), checa o Last.fm
+    // Se o Spotify estiver em silêncio absoluto (Status 204), checa o Last.fm
     if (nowPlaying.status === 204) {
       const fallbackData = await checkLastFmFallback();
       return res.status(200).json(fallbackData);
@@ -104,25 +104,26 @@ export default async function handler(req, res) {
 
     const song = await nowPlaying.json();
 
-    // Se não tiver item no Spotify, checa o Last.fm
-    if (!song.item) {
+    // SE O SPOTIFY NÃO ESTIVER TOCANDO ATIVAMENTE, CHECA O LAST.FM ANTES DE RETORNAR PAUSADO
+    if (!song.item || !song.is_playing) {
       const fallbackData = await checkLastFmFallback();
-      return res.status(200).json(fallbackData);
+      // Se o Last.fm tiver algo tocando de verdade (Apple Music), prioriza ele
+      if (fallbackData.isPlaying) {
+        return res.status(200).json(fallbackData);
+      }
     }
 
-    // Se o Spotify estiver tocando de fato, retorna o Spotify
+    // Se o Last.fm também não estiver tocando nada, retorna o status do Spotify (que estará pausado)
     return res.status(200).json({
       isPlaying: song.is_playing,
       provider: 'spotify',
-      title: song.item.name,
-      artist: song.item.artists
-        .map((artist) => artist.name)
-        .join(', '),
-      albumImageUrl: song.item.album.images[0].url,
+      title: song.item ? song.item.name : 'Desconhecido',
+      artist: song.item ? song.item.artists.map((artist) => artist.name).join(', ') : 'Desconhecido',
+      albumImageUrl: song.item ? song.item.album.images[0].url : 'https://s.ltrbxd.com/static/img/empty-poster-250.8491d904.png',
     });
 
   } catch (error) {
-    // Caso dê erro total no Spotify, tenta o Last.fm antes de dar erro na tela
+    // Caso dê erro total na API do Spotify, tenta o Last.fm como última salvação
     const fallbackData = await checkLastFmFallback();
     if (fallbackData.isPlaying) {
       return res.status(200).json(fallbackData);
