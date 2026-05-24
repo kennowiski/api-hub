@@ -28,12 +28,25 @@ export default async function handler(req, res) {
         const isNowPlaying = track['@attr'] && track['@attr'].nowplaying === 'true';
 
         if (isNowPlaying) {
+          // Imagem padrão cinza caso o Last.fm realmente não tenha capa nenhuma
+          let finalImageUrl = 'https://s.ltrbxd.com/static/img/empty-poster-250.8491d904.png';
+          
+          if (track.image) {
+             // Procura a imagem grande primeiro. Se não achar, pega a primeira que tiver um link válido
+             const imgData = track.image.find(i => i.size === 'extralarge' && i['#text']) || track.image.find(i => i['#text']);
+             
+             if (imgData && imgData['#text']) {
+                // Pega qualquer tamanho que o Last.fm mandou (/34s/, /64s/, etc) e converte para 300x300
+                finalImageUrl = imgData['#text'].replace(/\/i\/u\/[^/]+\//, '/i/u/300x300/');
+             }
+          }
+
           return {
             isPlaying: true,
             provider: 'lastfm',
             title: track.name,
             artist: track.artist['#text'],
-            albumImageUrl: (track.image && track.image.length > 0) ? track.image[track.image.length - 1]['#text'].replace('/34s/', '/300x300/').replace('/64s/', '/300x300/').replace('/174s/', '/300x300/') : 'https://s.ltrbxd.com/static/img/empty-poster-250.8491d904.png'
+            albumImageUrl: finalImageUrl
           };
         }
       }
