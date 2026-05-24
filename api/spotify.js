@@ -33,7 +33,7 @@ export default async function handler(req, res) {
             provider: 'lastfm',
             title: track.name,
             artist: track.artist['#text'],
-            albumImageUrl: track.image[3]['#text'] || track.image[2]['#text'] || 'https://s.ltrbxd.com/static/img/empty-poster-250.8491d904.png'
+            albumImageUrl: (track.image && track.image.reverse().find(img => img['#text']) ? track.image.reverse().find(img => img['#text'])['#text'] : '') || 'https://s.ltrbxd.com/static/img/empty-poster-250.8491d904.png'
           };
         }
       }
