@@ -33,7 +33,7 @@ export default async function handler(req, res) {
             provider: 'lastfm',
             title: track.name,
             artist: track.artist['#text'],
-            albumImageUrl: (track.image && track.image.reverse().find(img => img['#text']) ? track.image.reverse().find(img => img['#text'])['#text'] : '') || 'https://s.ltrbxd.com/static/img/empty-poster-250.8491d904.png'
+            albumImageUrl: (track.image && track.image.length > 0) ? track.image[track.image.length - 1]['#text'].replace('/34s/', '/300x300/').replace('/64s/', '/300x300/').replace('/174s/', '/300x300/') : 'https://s.ltrbxd.com/static/img/empty-poster-250.8491d904.png'
           };
         }
       }
