@@ -104,12 +104,12 @@ export default async function handler(req, res) {
 
     // SE O SPOTIFY NÃO ESTIVER TOCANDO ATIVAMENTE, CHECA O LAST.FM ANTES DE RETORNAR PAUSADO
     if (!song.item || !song.is_playing) {
-      const fallbackData = await checkLastFmFallback();
-      // Se o Last.fm tiver algo tocando de verdade (Apple Music), prioriza ele
-      if (fallbackData.isPlaying) {
-        return res.status(200).json(fallbackData);
-      }
-    }
+  const fallbackData = await checkLastFmFallback();
+  // Se o Last.fm tiver música tocando ou histórico recente, usa ele
+  if (fallbackData.title) {
+    return res.status(200).json(fallbackData);
+  }
+}
 
     // Se o Last.fm também não estiver tocando nada, retorna o status do Spotify (que estará pausado)
     return res.status(200).json({
