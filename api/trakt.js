@@ -22,14 +22,17 @@ export default async function handler(req, res) {
     const item = data[0];
 
     return res.status(200).json({
-      show: item.show.title,
-      year: item.show.year,
-      season: item.episode.season,
-      episodeNumber: item.episode.number,
-      episode: item.episode.title,
-      watchedAt: item.watched_at,
-      tmdbId: item.show.ids.tmdb
-    });
+  show: item.show.title,
+  year: item.show.year,
+  season: item.episode.season,
+  episodeNumber: item.episode.number,
+  episode: item.episode.title,
+  watchedAt: item.watched_at,
+  traktId: item.show.ids.trakt,
+  slug: item.show.ids.slug,
+  tmdbId: item.show.ids.tmdb,
+  imdbId: item.show.ids.imdb
+});
 
   } catch (error) {
     return res.status(500).json({
