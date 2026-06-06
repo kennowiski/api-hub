@@ -4,38 +4,31 @@ export default async function handler(req, res) {
 
   try {
     const response = await fetch(
-      'https://www.serializd.com/api/user/kennowiski/diary?page=1'
+      'https://www.serializd.com/api/user/kennowiski/diary?page=1&include_target=true',
+      {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/137.0.0.0 Safari/537.36',
+          'Accept': 'application/json,text/plain,*/*',
+          'Referer': 'https://www.serializd.com/user/kennowiski/diary',
+          'Origin': 'https://www.serializd.com'
+        }
+      }
     );
 
-    const data = await response.json();
-
-    if (!data.reviews?.length) {
-      return res.status(200).json({
-        error: 'Nenhuma série encontrada'
-      });
-    }
-
-    const latest = data.reviews[0];
-
-    const season = latest.showSeasons.find(
-      s => s.id === latest.seasonId
-    );
+    const text = await response.text();
 
     return res.status(200).json({
-      title: latest.showName,
-      season: season?.name || '',
-      rating: latest.rating,
-      poster: season?.posterPath
-        ? `https://image.tmdb.org/t/p/w300${season.posterPath}`
-        : 'https://s.ltrbxd.com/static/img/empty-poster-250.8491d904.png',
-      episode: latest.episodeName || null,
-      episodeNumber: latest.episodeNumber || null,
-      date: latest.dateAdded
+      status: response.status,
+      contentType: response.headers.get('content-type'),
+      finalUrl: response.url,
+      preview: text.substring(0, 1000)
     });
 
   } catch (error) {
     return res.status(500).json({
-      error: error.message
+      error: error.message,
+      stack: error.stack
     });
   }
 }
