@@ -18,13 +18,17 @@ export default async function handler(req, res) {
       }
     );
 
-    const text = await response.text();
+    const data = await response.json();
+    const item = data[0];
 
     return res.status(200).json({
-      status: response.status,
-      contentType: response.headers.get('content-type'),
-      finalUrl: response.url,
-      preview: text.substring(0, 1000)
+      show: item.show.title,
+      year: item.show.year,
+      season: item.episode.season,
+      episodeNumber: item.episode.number,
+      episode: item.episode.title,
+      watchedAt: item.watched_at,
+      tmdbId: item.show.ids.tmdb
     });
 
   } catch (error) {
