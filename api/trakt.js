@@ -5,7 +5,7 @@ export default async function handler(req, res) {
   try {
     const CLIENT_ID = process.env.TRAKT_CLIENT_ID;
     const USERNAME = process.env.TRAKT_USERNAME;
-    const TMDB_KEY = process.env.TMDB_API_KEY; // Puxa a chave que você salvou no Vercel
+    const TMDB_KEY = process.env.TMDB_API_KEY;
 
     // 1. Busca o histórico de séries no Trakt
     const response = await fetch(
@@ -30,17 +30,17 @@ export default async function handler(req, res) {
     const tmdbId = item.show.ids.tmdb;
     let posterUrl = null;
 
-    // 2. Se a série tiver um ID do TMDB, busca o pôster oficial direto na API deles
+    // 2. Busca o pôster da série no TMDB
     if (tmdbId && TMDB_KEY) {
       try {
         const tmdbResponse = await fetch(
           `https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${TMDB_KEY}&language=pt-BR`
         );
-        
+
         if (tmdbResponse.ok) {
           const tmdbData = await tmdbResponse.json();
+
           if (tmdbData.poster_path) {
-            // Gera o link otimizado da imagem (largura de 300px, ideal para o celular)
             posterUrl = `https://image.tmdb.org/t/p/w300${tmdbData.poster_path}`;
           }
         }
@@ -49,7 +49,38 @@ export default async function handler(req, res) {
       }
     }
 
-    // 3. Retorna os dados completos e o link do pôster direto para o seu HTML
+    // 3. Busca a sua avaliação do episódio no Trakt
+    let rating = null;
+
+    try {
+      const ratingsResponse = await fetch(
+        `https://api.trakt.tv/users/${USERNAME}/ratings/episodes?limit=100`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'trakt-api-version': '2',
+            'trakt-api-key': CLIENT_ID,
+            'User-Agent': 'KennyWebsite/1.0'
+          }
+        }
+      );
+
+      if (ratingsResponse.ok) {
+        const ratingsData = await ratingsResponse.json();
+
+        const ratedEpisode = ratingsData.find(
+          ratingItem => ratingItem.episode?.ids?.trakt === item.episode.ids.trakt
+        );
+
+        if (ratedEpisode) {
+          rating = ratedEpisode.rating;
+        }
+      }
+    } catch (ratingError) {
+      console.error('Erro ao buscar avaliação no Trakt:', ratingError.message);
+    }
+
+    // 4. Retorna os dados completos para o HTML
     return res.status(200).json({
       show: item.show.title,
       year: item.show.year,
@@ -58,10 +89,12 @@ export default async function handler(req, res) {
       episode: item.episode.title,
       watchedAt: item.watched_at,
       traktId: item.show.ids.trakt,
+      episodeTraktId: item.episode.ids.trakt,
       slug: item.show.ids.slug,
       tmdbId: tmdbId,
       imdbId: item.show.ids.imdb,
-      poster: posterUrl // Nova propriedade enviada de forma automática!
+      poster: posterUrl,
+      rating: rating
     });
 
   } catch (error) {
