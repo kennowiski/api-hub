@@ -80,6 +80,10 @@ export default async function handler(req, res) {
       console.error('Erro ao buscar avaliação no Trakt:', ratingError.message);
     }
 
+    const traktUrl = item.show.ids.slug
+      ? `https://trakt.tv/shows/${item.show.ids.slug}/seasons/${item.episode.season}/episodes/${item.episode.number}`
+      : `https://trakt.tv/users/${USERNAME}/history`;
+
     // 4. Retorna os dados completos e o link do pôster direto para o seu HTML
     return res.status(200).json({
       show: item.show.title,
@@ -94,7 +98,8 @@ export default async function handler(req, res) {
       tmdbId: tmdbId,
       imdbId: item.show.ids.imdb,
       poster: posterUrl,
-      rating: rating
+      rating: rating,
+      traktUrl: traktUrl
     });
 
   } catch (error) {
