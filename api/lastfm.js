@@ -1,39 +1,35 @@
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Cache-Control', 's-maxage=20, stale-while-revalidate=60');
 
   const lastfm_key = process.env.LASTFM_API_KEY;
   const lastFmUser = 'kennowiski';
 
   if (!lastfm_key) {
-    return res.status(500).json({
+    return res.status(200).json({
+      provider: 'lastfm',
+      tracks: [],
       error: 'Missing LASTFM_API_KEY environment variable',
     });
   }
 
-  function getBestImage(track) {
-    const fallbackImage =
-      'https://s.ltrbxd.com/static/img/empty-poster-250.8491d904.png';
+  const fallbackImage =
+    'https://s.ltrbxd.com/static/img/empty-poster-250.8491d904.png';
 
-    if (!track.image || !Array.isArray(track.image)) {
-      return fallbackImage;
-    }
+  function getBestImage(track) {
+    if (!track.image || !Array.isArray(track.image)) return fallbackImage;
 
     const imageData =
       track.image.find((img) => img.size === 'extralarge' && img['#text']) ||
       track.image.find((img) => img.size === 'large' && img['#text']) ||
       track.image.find((img) => img['#text']);
 
-    if (!imageData || !imageData['#text']) {
-      return fallbackImage;
-    }
+    if (!imageData || !imageData['#text']) return fallbackImage;
 
     return imageData['#text'].replace(/\/i\/u\/[^/]+\//, '/i/u/300x300/');
   }
 
   function formatTrack(track) {
-    const isNowPlaying =
-      track['@attr'] && track['@attr'].nowplaying === 'true';
-
     return {
       title: track.name || 'Desconhecido',
       artist:
@@ -45,7 +41,8 @@ export default async function handler(req, res) {
           ? track.album['#text']
           : '',
       albumImageUrl: getBestImage(track),
-      isNowPlaying,
+      isNowPlaying:
+        track['@attr'] && track['@attr'].nowplaying === 'true',
       playedAt:
         track.date && track.date.uts
           ? Number(track.date.uts) * 1000
@@ -54,8 +51,12 @@ export default async function handler(req, res) {
     };
   }
 
-  try {
-    const lastFmUrl =
+  function wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async function fetchRecentTracks() {
+    const url =
       `https://ws.audioscrobbler.com/2.0/` +
       `?method=user.getrecenttracks` +
       `&user=${encodeURIComponent(lastFmUser)}` +
@@ -63,28 +64,32 @@ export default async function handler(req, res) {
       `&format=json` +
       `&limit=10`;
 
-    const response = await fetch(lastFmUrl);
-    const text = await response.text();
-
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      return res.status(500).json({
-        error: 'Last.fm returned non-JSON response',
-        status: response.status,
-        body: text,
-      });
-    }
+    const response = await fetch(url);
+    const data = await response.json();
 
     if (!response.ok || data.error) {
-      return res.status(500).json({
-        error: 'Last.fm API error',
-        status: response.status,
-        lastfmError: data.error || null,
-        lastfmMessage: data.message || null,
-        raw: data,
-      });
+      const err = new Error(data.message || 'Last.fm request failed');
+      err.status = response.status;
+      err.lastfmError = data.error || null;
+      err.lastfmMessage = data.message || null;
+      throw err;
+    }
+
+    return data;
+  }
+
+  try {
+    let data;
+
+    try {
+      data = await fetchRecentTracks();
+    } catch (firstError) {
+      if (firstError.lastfmError === 8) {
+        await wait(700);
+        data = await fetchRecentTracks();
+      } else {
+        throw firstError;
+      }
     }
 
     const rawTracks = data?.recenttracks?.track;
@@ -93,20 +98,20 @@ export default async function handler(req, res) {
       return res.status(200).json({
         provider: 'lastfm',
         tracks: [],
-        raw: data,
       });
     }
 
-    const tracks = rawTracks.map(formatTrack);
-
     return res.status(200).json({
       provider: 'lastfm',
-      tracks,
+      tracks: rawTracks.map(formatTrack),
     });
   } catch (error) {
-    return res.status(500).json({
-      error: 'Server error while fetching Last.fm',
-      message: error.message,
+    return res.status(200).json({
+      provider: 'lastfm',
+      tracks: [],
+      error: error.message,
+      lastfmError: error.lastfmError || null,
+      lastfmMessage: error.lastfmMessage || null,
     });
   }
 }
