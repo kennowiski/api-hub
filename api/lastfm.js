@@ -64,14 +64,28 @@ export default async function handler(req, res) {
       `&limit=10`;
 
     const response = await fetch(lastFmUrl);
+    const text = await response.text();
 
-    if (!response.ok) {
-      return res.status(response.status).json({
-        error: 'Failed to fetch Last.fm recent tracks',
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      return res.status(500).json({
+        error: 'Last.fm returned non-JSON response',
+        status: response.status,
+        body: text,
       });
     }
 
-    const data = await response.json();
+    if (!response.ok || data.error) {
+      return res.status(500).json({
+        error: 'Last.fm API error',
+        status: response.status,
+        lastfmError: data.error || null,
+        lastfmMessage: data.message || null,
+        raw: data,
+      });
+    }
 
     const rawTracks = data?.recenttracks?.track;
 
@@ -79,6 +93,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         provider: 'lastfm',
         tracks: [],
+        raw: data,
       });
     }
 
@@ -90,7 +105,8 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     return res.status(500).json({
-      error: error.message,
+      error: 'Server error while fetching Last.fm',
+      message: error.message,
     });
   }
 }
