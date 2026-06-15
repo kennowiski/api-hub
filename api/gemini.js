@@ -68,7 +68,8 @@ ${safeExtra ? `Informações extras: ${safeExtra}` : ""}
 
 Recomende exatamente 3 obras parecidas.
 Não recomende a mesma obra informada.
-As recomendações devem estar em português do Brasil.
+Responda em português do Brasil.
+Use motivos curtos e diretos.
 `;
 
     const model = "gemini-3.5-flash";
@@ -92,39 +93,35 @@ As recomendações devem estar em português do Brasil.
             },
           ],
           generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 900,
-            responseFormat: {
-              text: {
-                mimeType: "APPLICATION_JSON",
-                schema: {
-                  type: "object",
-                  properties: {
-                    recommendations: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          title: {
-                            type: "string",
-                          },
-                          type: {
-                            type: "string",
-                          },
-                          year: {
-                            type: "string",
-                          },
-                          reason: {
-                            type: "string",
-                          },
-                        },
-                        required: ["title", "type", "year", "reason"],
+            temperature: 0.5,
+            maxOutputTokens: 2048,
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: "OBJECT",
+              properties: {
+                recommendations: {
+                  type: "ARRAY",
+                  items: {
+                    type: "OBJECT",
+                    properties: {
+                      title: {
+                        type: "STRING",
+                      },
+                      type: {
+                        type: "STRING",
+                      },
+                      year: {
+                        type: "STRING",
+                      },
+                      reason: {
+                        type: "STRING",
                       },
                     },
+                    required: ["title", "type", "year", "reason"],
                   },
-                  required: ["recommendations"],
                 },
               },
+              required: ["recommendations"],
             },
           },
         }),
@@ -152,12 +149,6 @@ As recomendações devem estar em português do Brasil.
       });
     }
 
-    text = text
-      .replace(/^```json/i, "")
-      .replace(/^```/i, "")
-      .replace(/```$/i, "")
-      .trim();
-
     let parsed;
 
     try {
@@ -167,6 +158,8 @@ As recomendações devem estar em português do Brasil.
         error: "A Gemini API retornou JSON inválido.",
         details: parseError.message,
         rawText: text,
+        finishReason: geminiData?.candidates?.[0]?.finishReason || null,
+        usageMetadata: geminiData?.usageMetadata || null,
       });
     }
 
