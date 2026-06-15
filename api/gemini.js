@@ -37,7 +37,7 @@ Seja direto, amigável, traga curiosidades breves e mantenha a resposta curta (m
     const promptText = `O usuário acabou de ver/ouvir a seguinte obra:\nTipo: ${tipo}\nTítulo: ${titulo}\n\nMe dê uma recomendação fantástica com base nisso!`;
 
     // URL oficial da API do Gemini em 2026 (usando o modelo estável gratuito Gemini 3 Flash)
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
     try {
         const geminiResponse = await fetch(url, {
