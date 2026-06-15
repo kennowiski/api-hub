@@ -73,6 +73,22 @@ Regras:
 - Não recomende a mesma obra informada.
 - Prefira obras com tom, gênero, ritmo, tema ou atmosfera semelhantes.
 - Seja direto.
+- Retorne somente JSON válido.
+- Não use markdown.
+- Não use crases.
+- Não escreva nada antes ou depois do JSON.
+
+Formato obrigatório:
+{
+  "recommendations": [
+    {
+      "title": "Nome da obra",
+      "type": "movie ou series",
+      "year": "ano",
+      "reason": "motivo curto"
+    }
+  ]
+}
 `;
 
     const model = "gemini-3.5-flash";
@@ -96,42 +112,8 @@ Regras:
             },
           ],
           generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 700,
-            responseFormat: {
-              text: {
-                mimeType: "APPLICATION_JSON",
-                schema: {
-                  type: "object",
-                  properties: {
-                    recommendations: {
-                      type: "array",
-                      minItems: 3,
-                      maxItems: 3,
-                      items: {
-                        type: "object",
-                        properties: {
-                          title: {
-                            type: "string",
-                          },
-                          type: {
-                            type: "string",
-                          },
-                          year: {
-                            type: "string",
-                          },
-                          reason: {
-                            type: "string",
-                          },
-                        },
-                        required: ["title", "type", "year", "reason"],
-                      },
-                    },
-                  },
-                  required: ["recommendations"],
-                },
-              },
-            },
+            temperature: 0.6,
+            maxOutputTokens: 1200,
           },
         }),
       }
@@ -146,17 +128,42 @@ Regras:
       });
     }
 
-    const text =
+    let text =
       geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+    text = String(text).trim();
 
     if (!text) {
       return res.status(500).json({
-        error: "A Gemini API não retornou texto.",
+        error: "A Gemini API retornou resposta vazia.",
         raw: geminiData,
       });
     }
 
-    const parsed = JSON.parse(text);
+    text = text
+      .replace(/^```json/i, "")
+      .replace(/^```/i, "")
+      .replace(/```$/i, "")
+      .trim();
+
+    const firstBrace = text.indexOf("{");
+    const lastBrace = text.lastIndexOf("}");
+
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      text = text.slice(firstBrace, lastBrace + 1);
+    }
+
+    let parsed;
+
+    try {
+      parsed = JSON.parse(text);
+    } catch (parseError) {
+      return res.status(500).json({
+        error: "A Gemini API retornou JSON inválido.",
+        details: parseError.message,
+        rawText: text,
+      });
+    }
 
     return res.status(200).json({
       success: true,
@@ -167,7 +174,9 @@ Regras:
         title: safeTitle,
         year: safeYear,
       },
-      recommendations: parsed.recommendations || [],
+      recommendations: Array.isArray(parsed.recommendations)
+        ? parsed.recommendations.slice(0, 3)
+        : [],
     });
   } catch (error) {
     return res.status(500).json({
