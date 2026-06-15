@@ -1,5 +1,4 @@
 module.exports = async function handler(req, res) {
-  // CORS básico para permitir chamada do seu portfólio
   const allowedOrigins = [
     "https://kennowiski.is-a.dev",
     "http://localhost:3000",
@@ -30,11 +29,14 @@ module.exports = async function handler(req, res) {
 
     if (!apiKey) {
       return res.status(500).json({
-        error: "GEMINI_API_KEY não configurada no ambiente da Vercel.",
+        error: "GEMINI_API_KEY não configurada na Vercel.",
       });
     }
 
-    const { type, title, year, extra } = req.body || {};
+    const body =
+      typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
+
+    const { type, title, year, extra } = body;
 
     if (!type || !title) {
       return res.status(400).json({
@@ -64,30 +66,13 @@ Título: ${safeTitle}
 ${safeYear ? `Ano: ${safeYear}` : ""}
 ${safeExtra ? `Informações extras: ${safeExtra}` : ""}
 
-Recomende 3 obras parecidas.
+Recomende exatamente 3 obras parecidas.
 
 Regras:
 - Responda em português do Brasil.
 - Não recomende a mesma obra informada.
 - Prefira obras com tom, gênero, ritmo, tema ou atmosfera semelhantes.
 - Seja direto.
-- Retorne somente JSON válido, sem markdown, sem crases e sem texto fora do JSON.
-
-Formato obrigatório:
-{
-  "base": {
-    "type": "${normalizedType}",
-    "title": "${safeTitle}"
-  },
-  "recommendations": [
-    {
-      "title": "Nome da recomendação",
-      "type": "movie ou series",
-      "year": "ano aproximado ou vazio",
-      "reason": "motivo curto da recomendação"
-    }
-  ]
-}
 `;
 
     const model = "gemini-3.5-flash";
@@ -111,9 +96,42 @@ Formato obrigatório:
             },
           ],
           generationConfig: {
-            temperature: 0.8,
+            temperature: 0.7,
             maxOutputTokens: 700,
-            responseMimeType: "application/json",
+            responseFormat: {
+              text: {
+                mimeType: "application/json",
+                schema: {
+                  type: "object",
+                  properties: {
+                    recommendations: {
+                      type: "array",
+                      minItems: 3,
+                      maxItems: 3,
+                      items: {
+                        type: "object",
+                        properties: {
+                          title: {
+                            type: "string",
+                          },
+                          type: {
+                            type: "string",
+                          },
+                          year: {
+                            type: "string",
+                          },
+                          reason: {
+                            type: "string",
+                          },
+                        },
+                        required: ["title", "type", "year", "reason"],
+                      },
+                    },
+                  },
+                  required: ["recommendations"],
+                },
+              },
+            },
           },
         }),
       }
@@ -138,25 +156,18 @@ Formato obrigatório:
       });
     }
 
-    let parsed;
-
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      const cleaned = text
-        .replace(/^```json/i, "")
-        .replace(/^```/i, "")
-        .replace(/```$/i, "")
-        .trim();
-
-      parsed = JSON.parse(cleaned);
-    }
+    const parsed = JSON.parse(text);
 
     return res.status(200).json({
       success: true,
       source: "gemini",
       model,
-      ...parsed,
+      base: {
+        type: normalizedType,
+        title: safeTitle,
+        year: safeYear,
+      },
+      recommendations: parsed.recommendations || [],
     });
   } catch (error) {
     return res.status(500).json({
