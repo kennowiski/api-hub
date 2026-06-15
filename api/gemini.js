@@ -67,28 +67,8 @@ ${safeYear ? `Ano: ${safeYear}` : ""}
 ${safeExtra ? `Informações extras: ${safeExtra}` : ""}
 
 Recomende exatamente 3 obras parecidas.
-
-Regras:
-- Responda em português do Brasil.
-- Não recomende a mesma obra informada.
-- Prefira obras com tom, gênero, ritmo, tema ou atmosfera semelhantes.
-- Seja direto.
-- Retorne somente JSON válido.
-- Não use markdown.
-- Não use crases.
-- Não escreva nada antes ou depois do JSON.
-
-Formato obrigatório:
-{
-  "recommendations": [
-    {
-      "title": "Nome da obra",
-      "type": "movie ou series",
-      "year": "ano",
-      "reason": "motivo curto"
-    }
-  ]
-}
+Não recomende a mesma obra informada.
+As recomendações devem estar em português do Brasil.
 `;
 
     const model = "gemini-3.5-flash";
@@ -112,8 +92,40 @@ Formato obrigatório:
             },
           ],
           generationConfig: {
-            temperature: 0.6,
-            maxOutputTokens: 1200,
+            temperature: 0.7,
+            maxOutputTokens: 900,
+            responseFormat: {
+              text: {
+                mimeType: "APPLICATION_JSON",
+                schema: {
+                  type: "object",
+                  properties: {
+                    recommendations: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          title: {
+                            type: "string",
+                          },
+                          type: {
+                            type: "string",
+                          },
+                          year: {
+                            type: "string",
+                          },
+                          reason: {
+                            type: "string",
+                          },
+                        },
+                        required: ["title", "type", "year", "reason"],
+                      },
+                    },
+                  },
+                  required: ["recommendations"],
+                },
+              },
+            },
           },
         }),
       }
@@ -145,13 +157,6 @@ Formato obrigatório:
       .replace(/^```/i, "")
       .replace(/```$/i, "")
       .trim();
-
-    const firstBrace = text.indexOf("{");
-    const lastBrace = text.lastIndexOf("}");
-
-    if (firstBrace !== -1 && lastBrace !== -1) {
-      text = text.slice(firstBrace, lastBrace + 1);
-    }
 
     let parsed;
 
