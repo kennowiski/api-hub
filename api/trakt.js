@@ -20,7 +20,23 @@ export default async function handler(req, res) {
       }
     );
 
-    const data = await response.json();
+    // --- MUDANÇA AQUI: Leitura segura para evitar crash com HTML ---
+    const responseText = await response.text();
+    const contentType = response.headers.get('content-type') || '';
+
+    if (!contentType.includes('application/json') || responseText.trim().startsWith('<')) {
+      return res.status(502).json({
+        error: "Resposta não-JSON detectada",
+        url: response.url,
+        status: response.status,
+        preview: responseText.substring(0, 100), // Pega os primeiros 100 caracteres do HTML
+        reason: "A API do Trakt retornou HTML em vez de JSON. Pode ser instabilidade, manutenção ou bloqueio de acesso (Cloudflare)."
+      });
+    }
+
+    const data = JSON.parse(responseText);
+    // --- FIM DA MUDANÇA ---
+
     const item = data[0];
 
     if (!item) {
@@ -38,10 +54,17 @@ export default async function handler(req, res) {
         );
         
         if (tmdbResponse.ok) {
-          const tmdbData = await tmdbResponse.json();
-          if (tmdbData.poster_path) {
-            // Gera o link otimizado da imagem (largura de 300px, ideal para o celular)
-            posterUrl = `https://image.tmdb.org/t/p/w300${tmdbData.poster_path}`;
+          // --- MUDANÇA AQUI: Prevenção no TMDB ---
+          const tmdbText = await tmdbResponse.text();
+          const tmdbContentType = tmdbResponse.headers.get('content-type') || '';
+          
+          if (tmdbContentType.includes('application/json')) {
+            const tmdbData = JSON.parse(tmdbText);
+            if (tmdbData.poster_path) {
+              posterUrl = `https://image.tmdb.org/t/p/w300${tmdbData.poster_path}`;
+            }
+          } else {
+            console.error('TMDB retornou HTML:', tmdbText.substring(0, 50));
           }
         }
       } catch (tmdbError) {
@@ -66,14 +89,21 @@ export default async function handler(req, res) {
       );
 
       if (ratingsResponse.ok) {
-        const ratingsData = await ratingsResponse.json();
+        // --- MUDANÇA AQUI: Prevenção nas avaliações ---
+        const ratingsText = await ratingsResponse.text();
+        const ratingsContentType = ratingsResponse.headers.get('content-type') || '';
 
-        const ratedEpisode = ratingsData.find(
-          ratingItem => ratingItem.episode?.ids?.trakt === item.episode.ids.trakt
-        );
+        if (ratingsContentType.includes('application/json')) {
+          const ratingsData = JSON.parse(ratingsText);
+          const ratedEpisode = ratingsData.find(
+            ratingItem => ratingItem.episode?.ids?.trakt === item.episode.ids.trakt
+          );
 
-        if (ratedEpisode) {
-          rating = ratedEpisode.rating;
+          if (ratedEpisode) {
+            rating = ratedEpisode.rating;
+          }
+        } else {
+          console.error('Trakt Ratings retornou HTML:', ratingsText.substring(0, 50));
         }
       }
     } catch (ratingError) {
