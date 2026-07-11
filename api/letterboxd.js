@@ -1,3 +1,16 @@
+import { XMLParser } from 'fast-xml-parser';
+
+const FALLBACK_POSTER = 'https://s.ltrbxd.com/static/img/empty-poster-250.8491d904.png';
+
+// Extrai texto de um campo do RSS, que pode vir como string simples
+// ou como objeto { __cdata: '...' } quando o feed usa CDATA.
+function readField(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'object' && '__cdata' in value) return String(value.__cdata).trim();
+  return String(value).trim();
+}
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 'no-store, max-age=0');
@@ -9,38 +22,37 @@ export default async function handler(req, res) {
       }
     });
 
+    if (!response.ok) {
+      return res.status(502).json({
+        error: 'Falha ao buscar o RSS do Letterboxd',
+        status: response.status
+      });
+    }
+
     const xmlText = await response.text();
 
-    const itemMatch = xmlText.match(/<item>([\s\S]*?)<\/item>/);
+    const parser = new XMLParser({
+      ignoreAttributes: true,
+      cdataPropName: '__cdata',
+      textNodeName: '__text'
+    });
 
-    if (!itemMatch) {
+    const parsed = parser.parse(xmlText);
+    const items = parsed?.rss?.channel?.item;
+    const firstItem = Array.isArray(items) ? items[0] : items;
+
+    if (!firstItem) {
       return res.status(200).json({
         error: 'Nenhum filme encontrado'
       });
     }
 
-    const item = itemMatch[1];
-
-    const getTag = (tag) => {
-      const match = item.match(new RegExp(`<${tag}>([\\s\\S]*?)<\\/${tag}>`));
-      return match ? match[1].trim() : '';
-    };
-
-    const title = getTag('title')
-      .replace(', watched by kennowiski', '')
-      .replace('<![CDATA[', '')
-      .replace(']]>', '');
-
-    const link = getTag('link');
-
-    const description = getTag('description')
-      .replace('<![CDATA[', '')
-      .replace(']]>', '');
+    const title = readField(firstItem.title).replace(', watched by kennowiski', '');
+    const link = readField(firstItem.link);
+    const description = readField(firstItem.description);
 
     const imgMatch = description.match(/<img[^>]+src="([^"]+)"/);
-    const poster = imgMatch
-      ? imgMatch[1]
-      : 'https://s.ltrbxd.com/static/img/empty-poster-250.8491d904.png';
+    const poster = imgMatch ? imgMatch[1] : FALLBACK_POSTER;
 
     return res.status(200).json({
       title,

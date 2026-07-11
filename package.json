@@ -1,0 +1,23 @@
+{
+  "name": "api-hub",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kennowiski/api-hub.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/kennowiski/api-hub/issues"
+  },
+  "homepage": "https://github.com/kennowiski/api-hub#readme",
+  "dependencies": {
+    "fast-xml-parser": "^5.10.0"
+  }
+}
