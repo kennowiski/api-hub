@@ -1,135 +1,142 @@
+// NOTA: este arquivo continua se chamando "trakt.js" (mesma rota /api/trakt)
+// de propósito, para não precisar mudar a URL que o frontend já chama.
+// Por dentro, os dados agora vêm da Simkl (simkl.com), não mais do Trakt.
+//
+// Env vars necessárias na Vercel:
+//   SIMKL_CLIENT_ID     -> client_id do app criado em simkl.com/settings/developer
+//   SIMKL_ACCESS_TOKEN  -> access_token obtido via PIN flow (script get-simkl-token.js)
+//   TMDB_API_KEY        -> já existia, reaproveitada aqui pro poster e nome do episódio
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Cache-Control', 'no-store, max-age=0');
 
   try {
-    const CLIENT_ID = process.env.TRAKT_CLIENT_ID;
-    const USERNAME = process.env.TRAKT_USERNAME;
-    const TMDB_KEY = process.env.TMDB_API_KEY; // Puxa a chave que você salvou no Vercel
+    const CLIENT_ID = process.env.SIMKL_CLIENT_ID;
+    const ACCESS_TOKEN = process.env.SIMKL_ACCESS_TOKEN;
+    const TMDB_KEY = process.env.TMDB_API_KEY;
 
-    // 1. Busca o histórico de séries no Trakt
+    if (!CLIENT_ID || !ACCESS_TOKEN) {
+      return res.status(500).json({
+        error: 'Configuração ausente',
+        reason: 'SIMKL_CLIENT_ID e/ou SIMKL_ACCESS_TOKEN não estão definidos nas env vars da Vercel.'
+      });
+    }
+
+    // 1. Busca a biblioteca de séries do usuário na Simkl (todos os status)
     const response = await fetch(
-      `https://api.trakt.tv/users/${USERNAME}/history/shows?limit=1`,
+      `https://api.simkl.com/sync/all-items/shows?extended=full&client_id=${CLIENT_ID}&app-name=kenny-portfolio&app-version=1.0`,
       {
         headers: {
           'Content-Type': 'application/json',
-          'trakt-api-version': '2',
-          'trakt-api-key': CLIENT_ID,
+          'Authorization': `Bearer ${ACCESS_TOKEN}`,
           'User-Agent': 'KennyWebsite/1.0'
         }
       }
     );
 
-    // --- MUDANÇA AQUI: Leitura segura para evitar crash com HTML ---
     const responseText = await response.text();
     const contentType = response.headers.get('content-type') || '';
 
+    if (!response.ok) {
+      return res.status(502).json({
+        error: 'A API da Simkl recusou a requisição',
+        status: response.status,
+        statusText: response.statusText,
+        preview: responseText.substring(0, 200),
+        reason: response.status === 401 || response.status === 403
+          ? 'Access token inválido/expirado, ou client_id errado. Gere um novo token com o script de PIN flow.'
+          : 'Veja "preview" para mais detalhes.'
+      });
+    }
+
     if (!contentType.includes('application/json') || responseText.trim().startsWith('<')) {
       return res.status(502).json({
-        error: "Resposta não-JSON detectada",
-        url: response.url,
+        error: 'Resposta não-JSON detectada',
         status: response.status,
-        preview: responseText.substring(0, 100), // Pega os primeiros 100 caracteres do HTML
-        reason: "A API do Trakt retornou HTML em vez de JSON. Pode ser instabilidade, manutenção ou bloqueio de acesso (Cloudflare)."
+        preview: responseText.substring(0, 100),
+        reason: 'A API da Simkl retornou algo que não é JSON.'
       });
     }
 
     const data = JSON.parse(responseText);
-    // --- FIM DA MUDANÇA ---
+    const shows = data.shows || [];
 
-    const item = data[0];
-
-    if (!item) {
+    // 2. Encontra a série com o episódio assistido mais recentemente
+    const withHistory = shows.filter(item => item.last_watched_at && item.last_watched);
+    if (withHistory.length === 0) {
       return res.status(200).json({ error: 'Nenhum histórico encontrado' });
     }
 
-    const tmdbId = item.show.ids.tmdb;
-    let posterUrl = null;
+    withHistory.sort((a, b) => new Date(b.last_watched_at) - new Date(a.last_watched_at));
+    const item = withHistory[0];
 
-    // 2. Se a série tiver um ID do TMDB, busca o pôster oficial direto na API deles
+    // "S03E06" -> season 3, episode 6
+    const match = /S(\d+)E(\d+)/i.exec(item.last_watched || '');
+    const season = match ? parseInt(match[1], 10) : null;
+    const episodeNumber = match ? parseInt(match[2], 10) : null;
+
+    const tmdbId = item.show?.ids?.tmdb || null;
+    let posterUrl = null;
+    let episodeTitle = null;
+
+    // 3. Busca pôster da série e o nome do episódio na TMDB
     if (tmdbId && TMDB_KEY) {
       try {
-        const tmdbResponse = await fetch(
+        const tmdbShowResponse = await fetch(
           `https://api.themoviedb.org/3/tv/${tmdbId}?api_key=${TMDB_KEY}&language=pt-BR`
         );
-        
-        if (tmdbResponse.ok) {
-          // --- MUDANÇA AQUI: Prevenção no TMDB ---
-          const tmdbText = await tmdbResponse.text();
-          const tmdbContentType = tmdbResponse.headers.get('content-type') || '';
-          
-          if (tmdbContentType.includes('application/json')) {
-            const tmdbData = JSON.parse(tmdbText);
-            if (tmdbData.poster_path) {
-              posterUrl = `https://image.tmdb.org/t/p/w300${tmdbData.poster_path}`;
+        if (tmdbShowResponse.ok) {
+          const tmdbShowText = await tmdbShowResponse.text();
+          if ((tmdbShowResponse.headers.get('content-type') || '').includes('application/json')) {
+            const tmdbShowData = JSON.parse(tmdbShowText);
+            if (tmdbShowData.poster_path) {
+              posterUrl = `https://image.tmdb.org/t/p/w300${tmdbShowData.poster_path}`;
             }
-          } else {
-            console.error('TMDB retornou HTML:', tmdbText.substring(0, 50));
           }
         }
       } catch (tmdbError) {
-        console.error('Erro ao buscar imagem no TMDB:', tmdbError.message);
+        console.error('Erro ao buscar pôster no TMDB:', tmdbError.message);
       }
-    }
 
-    // 3. Busca a sua avaliação do episódio no Trakt
-    let rating = null;
-
-    try {
-      const ratingsResponse = await fetch(
-        `https://api.trakt.tv/users/${USERNAME}/ratings/episodes?limit=100`,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'trakt-api-version': '2',
-            'trakt-api-key': CLIENT_ID,
-            'User-Agent': 'KennyWebsite/1.0'
-          }
-        }
-      );
-
-      if (ratingsResponse.ok) {
-        // --- MUDANÇA AQUI: Prevenção nas avaliações ---
-        const ratingsText = await ratingsResponse.text();
-        const ratingsContentType = ratingsResponse.headers.get('content-type') || '';
-
-        if (ratingsContentType.includes('application/json')) {
-          const ratingsData = JSON.parse(ratingsText);
-          const ratedEpisode = ratingsData.find(
-            ratingItem => ratingItem.episode?.ids?.trakt === item.episode.ids.trakt
+      if (season !== null && episodeNumber !== null) {
+        try {
+          const tmdbEpResponse = await fetch(
+            `https://api.themoviedb.org/3/tv/${tmdbId}/season/${season}/episode/${episodeNumber}?api_key=${TMDB_KEY}&language=pt-BR`
           );
-
-          if (ratedEpisode) {
-            rating = ratedEpisode.rating;
+          if (tmdbEpResponse.ok) {
+            const tmdbEpText = await tmdbEpResponse.text();
+            if ((tmdbEpResponse.headers.get('content-type') || '').includes('application/json')) {
+              const tmdbEpData = JSON.parse(tmdbEpText);
+              episodeTitle = tmdbEpData.name || null;
+            }
           }
-        } else {
-          console.error('Trakt Ratings retornou HTML:', ratingsText.substring(0, 50));
+        } catch (tmdbError) {
+          console.error('Erro ao buscar nome do episódio no TMDB:', tmdbError.message);
         }
       }
-    } catch (ratingError) {
-      console.error('Erro ao buscar avaliação no Trakt:', ratingError.message);
     }
 
-    const traktUrl = item.show.ids.slug
-      ? `https://trakt.tv/shows/${item.show.ids.slug}/seasons/${item.episode.season}/episodes/${item.episode.number}`
-      : `https://trakt.tv/users/${USERNAME}/history`;
+    const simklId = item.show?.ids?.simkl || null;
+    const slug = item.show?.ids?.slug || null;
+    const simklUrl = simklId ? `https://simkl.com/tv/${simklId}` : 'https://simkl.com';
 
-    // 4. Retorna os dados completos e o link do pôster direto para o seu HTML
+    // 4. Retorna no MESMO formato que o frontend já espera (era o shape do Trakt)
     return res.status(200).json({
-      show: item.show.title,
-      year: item.show.year,
-      season: item.episode.season,
-      episodeNumber: item.episode.number,
-      episode: item.episode.title,
-      watchedAt: item.watched_at,
-      traktId: item.show.ids.trakt,
-      episodeTraktId: item.episode.ids.trakt,
-      slug: item.show.ids.slug,
+      show: item.show?.title || null,
+      year: item.show?.year || null,
+      season: season,
+      episodeNumber: episodeNumber,
+      episode: episodeTitle,
+      watchedAt: item.last_watched_at,
+      traktId: simklId,          // reaproveita o mesmo campo, agora com o id da Simkl
+      episodeTraktId: null,      // Simkl não expõe id de episódio individual aqui
+      slug: slug,
       tmdbId: tmdbId,
-      imdbId: item.show.ids.imdb,
+      imdbId: item.show?.ids?.imdb || null,
       poster: posterUrl,
-      rating: rating,
-      traktUrl: traktUrl
+      rating: item.user_rating || null, // Simkl só tem rating por série, não por episódio
+      traktUrl: simklUrl
     });
 
   } catch (error) {
