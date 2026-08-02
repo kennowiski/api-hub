@@ -79,6 +79,7 @@ export default async function handler(req, res) {
     const tmdbId = item.show?.ids?.tmdb || null;
     let posterUrl = null;
     let episodeTitle = null;
+    let genres = null;
 
     // 3. Busca pôster da série e o nome do episódio na TMDB
     if (tmdbId && TMDB_KEY) {
@@ -92,6 +93,9 @@ export default async function handler(req, res) {
             const tmdbShowData = JSON.parse(tmdbShowText);
             if (tmdbShowData.poster_path) {
               posterUrl = `https://image.tmdb.org/t/p/w300${tmdbShowData.poster_path}`;
+            }
+            if (Array.isArray(tmdbShowData.genres) && tmdbShowData.genres.length > 0) {
+              genres = tmdbShowData.genres.map(g => g.name).join(', ');
             }
           }
         }
@@ -136,6 +140,7 @@ export default async function handler(req, res) {
       imdbId: item.show?.ids?.imdb || null,
       poster: posterUrl,
       rating: item.user_rating || null, // Simkl só tem rating por série, não por episódio
+      genres: genres,
       traktUrl: simklUrl
     });
 
