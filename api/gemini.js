@@ -1,25 +1,9 @@
+const { applyCors } = require("./_lib/cors.js");
 const { checkRateLimit } = require("./_lib/rateLimit.js");
 
 module.exports = async function handler(req, res) {
-  const allowedOrigins = [
-    "https://kennowiski.is-a.dev",
-    "https://kennowiski.com.br",
-    "https://www.kennowiski.com.br",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-  ];
-
-  const origin = req.headers.origin;
-
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  }
-
-  res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-
-  if (req.method === "OPTIONS") {
-    return res.status(204).end();
+  if (applyCors(req, res, { methods: "POST, OPTIONS" })) {
+    return;
   }
 
   if (req.method !== "POST") {
