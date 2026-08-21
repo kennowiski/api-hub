@@ -1,12 +1,11 @@
-export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Cache-Control', 's-maxage=20, stale-while-revalidate=60');
+import { applyCors } from './_lib/cors.js';
 
-  if (req.method === 'OPTIONS') {
-    return res.status(204).end();
+export default async function handler(req, res) {
+  if (applyCors(req, res, { methods: 'GET, OPTIONS' })) {
+    return;
   }
+
+  res.setHeader('Cache-Control', 's-maxage=20, stale-while-revalidate=60');
 
   const client_id = process.env.SPOTIFY_CLIENT_ID;
   const client_secret = process.env.SPOTIFY_CLIENT_SECRET;

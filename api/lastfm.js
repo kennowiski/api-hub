@@ -1,5 +1,10 @@
+import { applyCors } from './_lib/cors.js';
+
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  if (applyCors(req, res, { methods: 'GET, OPTIONS' })) {
+    return;
+  }
+
   res.setHeader('Cache-Control', 's-maxage=20, stale-while-revalidate=60');
 
   const lastfm_key = process.env.LASTFM_API_KEY;

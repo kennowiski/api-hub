@@ -7,8 +7,13 @@
 //   SIMKL_ACCESS_TOKEN  -> access_token obtido via PIN flow (script get-simkl-token.js)
 //   TMDB_API_KEY        -> já existia, reaproveitada aqui pro poster e nome do episódio
 
+import { applyCors } from './_lib/cors.js';
+
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  if (applyCors(req, res, { methods: 'GET, OPTIONS' })) {
+    return;
+  }
+
   res.setHeader('Cache-Control', 'no-store, max-age=0');
 
   try {

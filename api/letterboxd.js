@@ -1,4 +1,5 @@
 import { XMLParser } from 'fast-xml-parser';
+import { applyCors } from './_lib/cors.js';
 
 const FALLBACK_POSTER = 'https://s.ltrbxd.com/static/img/empty-poster-250.8491d904.png';
 
@@ -12,7 +13,10 @@ function readField(value) {
 }
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  if (applyCors(req, res, { methods: 'GET, OPTIONS' })) {
+    return;
+  }
+
   res.setHeader('Cache-Control', 'no-store, max-age=0');
 
   try {

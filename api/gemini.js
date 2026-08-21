@@ -1,3 +1,5 @@
+const { checkRateLimit } = require("./_lib/rateLimit.js");
+
 module.exports = async function handler(req, res) {
   const allowedOrigins = [
     "https://kennowiski.is-a.dev",
@@ -23,6 +25,16 @@ module.exports = async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({
       error: "Método não permitido. Use POST.",
+    });
+  }
+
+  const rate = checkRateLimit(req);
+
+  if (rate.limited) {
+    res.setHeader("Retry-After", String(rate.retryAfterSeconds));
+    return res.status(429).json({
+      error: "Muitas requisições. Tente novamente em instantes.",
+      retryAfterSeconds: rate.retryAfterSeconds,
     });
   }
 
