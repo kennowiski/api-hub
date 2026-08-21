@@ -1,5 +1,7 @@
 const { applyCors } = require("./_lib/cors.js");
-const { checkRateLimit } = require("./_lib/rateLimit.js");
+const { createRateLimiter } = require("./_lib/rateLimit.js");
+
+const checkRateLimit = createRateLimiter(10, 60 * 1000); // 10 chamadas/min por IP
 
 module.exports = async function handler(req, res) {
   if (applyCors(req, res, { methods: "POST, OPTIONS" })) {

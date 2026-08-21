@@ -6,11 +6,6 @@
 // primeira barreira eficaz contra abuso básico/loops de um mesmo IP, sem
 // precisar de um serviço externo (Redis, Upstash, etc.).
 
-const hits = new Map();
-
-const WINDOW_MS = 60 * 1000; // janela de 1 minuto
-const MAX_REQUESTS = 10; // máx. de chamadas por IP dentro da janela
-
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
   if (forwarded) {
@@ -20,27 +15,36 @@ function getClientIp(req) {
 }
 
 /**
- * Retorna { limited: boolean, remaining: number, retryAfterSeconds: number }
+ * Cria um limitador independente (com seu próprio contador em memória).
+ * Use uma instância por endpoint, já que cada um tem um padrão de uso diferente.
+ *
+ * @param {number} maxRequests - máx. de chamadas por IP dentro da janela
+ * @param {number} windowMs - duração da janela, em ms (padrão: 60s)
+ * @returns {(req) => { limited: boolean, remaining: number, retryAfterSeconds: number }}
  */
-function checkRateLimit(req) {
-  const ip = getClientIp(req);
-  const now = Date.now();
+function createRateLimiter(maxRequests, windowMs = 60 * 1000) {
+  const hits = new Map();
 
-  const entry = hits.get(ip);
+  return function checkRateLimit(req) {
+    const ip = getClientIp(req);
+    const now = Date.now();
 
-  if (!entry || now - entry.windowStart > WINDOW_MS) {
-    hits.set(ip, { windowStart: now, count: 1 });
-    return { limited: false, remaining: MAX_REQUESTS - 1, retryAfterSeconds: 0 };
-  }
+    const entry = hits.get(ip);
 
-  entry.count += 1;
+    if (!entry || now - entry.windowStart > windowMs) {
+      hits.set(ip, { windowStart: now, count: 1 });
+      return { limited: false, remaining: maxRequests - 1, retryAfterSeconds: 0 };
+    }
 
-  if (entry.count > MAX_REQUESTS) {
-    const retryAfterSeconds = Math.ceil((entry.windowStart + WINDOW_MS - now) / 1000);
-    return { limited: true, remaining: 0, retryAfterSeconds };
-  }
+    entry.count += 1;
 
-  return { limited: false, remaining: MAX_REQUESTS - entry.count, retryAfterSeconds: 0 };
+    if (entry.count > maxRequests) {
+      const retryAfterSeconds = Math.ceil((entry.windowStart + windowMs - now) / 1000);
+      return { limited: true, remaining: 0, retryAfterSeconds };
+    }
+
+    return { limited: false, remaining: maxRequests - entry.count, retryAfterSeconds: 0 };
+  };
 }
 
-module.exports = { checkRateLimit };
+module.exports = { createRateLimiter };

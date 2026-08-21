@@ -8,10 +8,23 @@
 //   TMDB_API_KEY        -> já existia, reaproveitada aqui pro poster e nome do episódio
 
 import { applyCors } from './_lib/cors.js';
+import { createRateLimiter } from './_lib/rateLimit.js';
+
+const checkRateLimit = createRateLimiter(10, 60 * 1000); // 10 chamadas/min por IP
 
 export default async function handler(req, res) {
   if (applyCors(req, res, { methods: 'GET, OPTIONS' })) {
     return;
+  }
+
+  const rate = checkRateLimit(req);
+
+  if (rate.limited) {
+    res.setHeader('Retry-After', String(rate.retryAfterSeconds));
+    return res.status(429).json({
+      error: 'Muitas requisições. Tente novamente em instantes.',
+      retryAfterSeconds: rate.retryAfterSeconds,
+    });
   }
 
   res.setHeader('Cache-Control', 'no-store, max-age=0');
