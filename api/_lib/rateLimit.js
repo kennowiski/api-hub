@@ -1,10 +1,7 @@
-// Rate limiter simples, em memória, por IP.
-//
-// IMPORTANTE: como funções serverless da Vercel podem rodar em instâncias
-// diferentes a cada chamada, este contador NÃO é 100% preciso sob carga alta
-// distribuída (cada instância tem sua própria memória). Ainda assim, é uma
-// primeira barreira eficaz contra abuso básico/loops de um mesmo IP, sem
-// precisar de um serviço externo (Redis, Upstash, etc.).
+// Rate limit simples em memória, por IP.
+// Como a Vercel pode rodar em instâncias diferentes a cada chamada, a
+// contagem não é 100% precisa sob carga alta (cada instância tem sua
+// própria memória), mas já segura abuso básico sem precisar de Redis/Upstash.
 
 function getClientIp(req) {
   const forwarded = req.headers['x-forwarded-for'];
@@ -14,14 +11,8 @@ function getClientIp(req) {
   return req.socket?.remoteAddress || 'unknown';
 }
 
-/**
- * Cria um limitador independente (com seu próprio contador em memória).
- * Use uma instância por endpoint, já que cada um tem um padrão de uso diferente.
- *
- * @param {number} maxRequests - máx. de chamadas por IP dentro da janela
- * @param {number} windowMs - duração da janela, em ms (padrão: 60s)
- * @returns {(req) => { limited: boolean, remaining: number, retryAfterSeconds: number }}
- */
+// Cria um limitador com contador próprio. Uma instância por endpoint,
+// já que cada um aguenta um volume diferente de chamadas.
 function createRateLimiter(maxRequests, windowMs = 60 * 1000) {
   const hits = new Map();
 

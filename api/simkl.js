@@ -1,16 +1,15 @@
-// NOTA: este arquivo continua se chamando "trakt.js" (mesma rota /api/trakt)
-// de propósito, para não precisar mudar a URL que o frontend já chama.
-// Por dentro, os dados agora vêm da Simkl (simkl.com), não mais do Trakt.
+// A rota continua sendo /api/trakt de propósito, pra não precisar mudar
+// a URL que o frontend já chama. Por dentro os dados agora vêm da Simkl,
+// não mais do Trakt.
 //
-// Env vars necessárias na Vercel:
-//   SIMKL_CLIENT_ID     -> client_id do app criado em simkl.com/settings/developer
-//   SIMKL_ACCESS_TOKEN  -> access_token obtido via PIN flow (script get-simkl-token.js)
-//   TMDB_API_KEY        -> já existia, reaproveitada aqui pro poster e nome do episódio
+// Env vars na Vercel: SIMKL_CLIENT_ID (client_id do app em
+// simkl.com/settings/developer), SIMKL_ACCESS_TOKEN (token do PIN flow,
+// script get-simkl-token.js) e TMDB_API_KEY (poster e nome do episódio).
 
 import { applyCors } from './_lib/cors.js';
 import { createRateLimiter } from './_lib/rateLimit.js';
 
-const checkRateLimit = createRateLimiter(10, 60 * 1000); // 10 chamadas/min por IP
+const checkRateLimit = createRateLimiter(10, 60 * 1000); // 10 req/min por IP
 
 export default async function handler(req, res) {
   if (applyCors(req, res, { methods: 'GET, OPTIONS' })) {
@@ -41,7 +40,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // 1. Busca a biblioteca de séries do usuário na Simkl (todos os status)
+    // Busca a biblioteca de séries do usuário na Simkl (todos os status)
     const response = await fetch(
       `https://api.simkl.com/sync/all-items/shows?extended=full&client_id=${CLIENT_ID}&app-name=kenny-portfolio&app-version=1.0`,
       {
@@ -80,7 +79,7 @@ export default async function handler(req, res) {
     const data = JSON.parse(responseText);
     const shows = data.shows || [];
 
-    // 2. Encontra a série com o episódio assistido mais recentemente
+    // Encontra a série com o episódio assistido mais recentemente
     const withHistory = shows.filter(item => item.last_watched_at && item.last_watched);
     if (withHistory.length === 0) {
       return res.status(200).json({ error: 'Nenhum histórico encontrado' });
@@ -99,7 +98,7 @@ export default async function handler(req, res) {
     let episodeTitle = null;
     let genres = null;
 
-    // 3. Busca pôster da série e o nome do episódio na TMDB
+    // Busca pôster da série e o nome do episódio na TMDB
     if (tmdbId && TMDB_KEY) {
       try {
         const tmdbShowResponse = await fetch(
@@ -143,7 +142,7 @@ export default async function handler(req, res) {
     const slug = item.show?.ids?.slug || null;
     const simklUrl = simklId ? `https://simkl.com/tv/${simklId}` : 'https://simkl.com';
 
-    // 4. Retorna no MESMO formato que o frontend já espera (era o shape do Trakt)
+    // Retorna no mesmo formato que o frontend já espera (era o shape do Trakt)
     return res.status(200).json({
       show: item.show?.title || null,
       year: item.show?.year || null,

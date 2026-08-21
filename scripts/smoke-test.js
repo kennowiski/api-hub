@@ -1,21 +1,13 @@
-// Testes de fumaça (smoke tests) do api-hub.
+// Smoke test do api-hub: bate em cada endpoint publicado e confere se a
+// resposta é JSON válido com os campos que o frontend (hub) espera. Não
+// substitui teste unitário, é só pra pegar se algo caiu ou mudou de formato.
 //
-// Bate em cada endpoint publicado e confere:
-//   1) que a resposta é JSON válido
-//   2) que o formato tem os campos que o frontend (hub) espera
+// node scripts/smoke-test.js -> testa produção (Vercel)
+// BASE_URL=http://localhost:3000 node scripts/smoke-test.js -> testa local
 //
-// Não substitui teste unitário nem cobre lógica interna — o objetivo
-// é só garantir que nada está fora do ar ou com o formato quebrado,
-// do jeito que o frontend realmente consome.
-//
-// Uso:
-//   node scripts/smoke-test.js                 -> testa produção (Vercel)
-//   BASE_URL=http://localhost:3000 node scripts/smoke-test.js   -> testa local
-//
-// Os endpoints /api/gemini e /api/admin/verify são sensíveis (consomem
-// cota da API do Gemini, ou exigem login real), então só testamos o
-// comportamento de guarda deles (método errado, sem token) — nunca a
-// chamada de verdade.
+// /api/gemini e /api/admin/verify são sensíveis (gastam cota do Gemini ou
+// exigem login real), então só testamos a guarda deles (método errado,
+// sem token), nunca a chamada de verdade.
 
 const BASE_URL = process.env.BASE_URL || 'https://kennowiski-api-hub.vercel.app';
 

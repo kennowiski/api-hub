@@ -1,7 +1,7 @@
 import { applyCors } from './_lib/cors.js';
 import { createRateLimiter } from './_lib/rateLimit.js';
 
-const checkRateLimit = createRateLimiter(20, 60 * 1000); // 20 chamadas/min por IP
+const checkRateLimit = createRateLimiter(20, 60 * 1000); // 20 req/min por IP
 
 export default async function handler(req, res) {
   if (applyCors(req, res, { methods: 'GET, OPTIONS' })) {

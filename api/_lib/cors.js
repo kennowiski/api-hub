@@ -6,11 +6,8 @@ const ALLOWED_ORIGINS = [
   'http://127.0.0.1:3000',
 ];
 
-/**
- * Aplica cabeçalhos de CORS restritos aos domínios permitidos.
- * Retorna true se a requisição já foi finalizada aqui (caso de OPTIONS),
- * indicando que o handler não deve continuar processando.
- */
+// Libera CORS só pros domínios da lista. Se for OPTIONS já responde
+// aqui e retorna true pro handler saber que não precisa continuar.
 function applyCors(req, res, { methods = 'GET, OPTIONS' } = {}) {
   const origin = req.headers.origin;
 

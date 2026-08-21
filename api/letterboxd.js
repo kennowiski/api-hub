@@ -2,12 +2,12 @@ import { XMLParser } from 'fast-xml-parser';
 import { applyCors } from './_lib/cors.js';
 import { createRateLimiter } from './_lib/rateLimit.js';
 
-const checkRateLimit = createRateLimiter(10, 60 * 1000); // 10 chamadas/min por IP
+const checkRateLimit = createRateLimiter(10, 60 * 1000); // 10 req/min por IP
 
 const FALLBACK_POSTER = 'https://s.ltrbxd.com/static/img/empty-poster-250.8491d904.png';
 
-// Extrai texto de um campo do RSS, que pode vir como string simples
-// ou como objeto { __cdata: '...' } quando o feed usa CDATA.
+// Pega o texto de um campo do RSS (vem como string ou como
+// { __cdata: '...' } quando o feed usa CDATA)
 function readField(value) {
   if (value === null || value === undefined) return '';
   if (typeof value === 'string') return value.trim();
